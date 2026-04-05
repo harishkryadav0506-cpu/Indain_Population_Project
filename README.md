@@ -4,7 +4,7 @@
 
 <br>
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.4-F7931E?style=flat-square&logo=scikit-learn&logoColor=white)
 ![Plotly](https://img.shields.io/badge/Plotly-5.20-3F4F75?style=flat-square&logo=plotly&logoColor=white)
@@ -120,8 +120,9 @@ Open your browser at **http://localhost:8501** 🎉
    - **Main file path:** `app.py`
 5. Click **Deploy!**
 
-Your app will be live in under 2 minutes at a public URL like:
-`https://indainpopulationproject.streamlit.app`
+🌐 **Live App URL:**
+
+> **[https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app](https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app)**
 
 ---
 
@@ -152,12 +153,12 @@ Your app will be live in under 2 minutes at a public URL like:
 ## 📦 Dependencies
 
 ```
-streamlit==1.33.0
-pandas==2.2.1
-plotly==5.20.0
-scikit-learn==1.4.1.post1
-numpy==1.26.4
-scipy==1.13.0
+streamlit>=1.33.0
+pandas>=2.0.0
+plotly>=5.15.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+scipy>=1.10.0
 ```
 
 ---
