@@ -1,21 +1,25 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import time
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import root_mean_squared_error, r2_score
 
 # ==========================================
 # PAGE CONFIGURATION
 # ==========================================
 st.set_page_config(
-    page_title="India Population Prediction | भारत जनसंख्या अनुमान",
-    page_icon="🇮🇳",
+    page_title="India Population Predictor | ML Version",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for UI Enhancement
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
@@ -31,219 +35,213 @@ st.markdown("""
         color: #94a3b8;
         margin-bottom: 2rem;
     }
-    .metric-card {
-        background-color: #111827;
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 10px;
-        padding: 20px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #f1f5f9;
-    }
-    .stat-label {
-        color: #94a3b8;
-        font-size: 1rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
 # DATA DEFINITIONS
 # ==========================================
-DATA = {
-    "historical": {
-        "years": [1950, 1955, 1960, 1965, 1970, 1975, 1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2025],
-        "pop": [376, 409, 450, 499, 555, 623, 698, 784, 873, 964, 1057, 1148, 1234, 1310, 1380, 1450]
-    },
-    "projected": {
-        "years": [2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060, 2065, 2070, 2075, 2080, 2085, 2090, 2095, 2100],
-        "pop": [1450, 1515, 1565, 1610, 1645, 1670, 1685, 1695, 1697, 1690, 1675, 1655, 1625, 1590, 1560, 1533]
-    },
-    "growth_rate": {
-        "years": [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020, 2025, 2030, 2040, 2050, 2060, 2070, 2080, 2090, 2100],
-        "rate": [1.8, 2.0, 2.2, 2.3, 2.1, 1.8, 1.5, 1.0, 0.9, 0.8, 0.5, 0.3, 0.1, -0.05, -0.15, -0.25, -0.3]
-    },
-    "states": [
-        {"State": "Uttar Pradesh", "Population": 231, "Color": "#FF6B35"},
-        {"State": "Maharashtra", "Population": 126, "Color": "#F7C948"},
-        {"State": "Bihar", "Population": 124, "Color": "#1B9C85"},
-        {"State": "West Bengal", "Population": 100, "Color": "#E94560"},
-        {"State": "Madhya Pradesh", "Population": 85, "Color": "#7B68EE"},
-        {"State": "Tamil Nadu", "Population": 78, "Color": "#FF6B9D"},
-        {"State": "Rajasthan", "Population": 79, "Color": "#20C997"},
-        {"State": "Karnataka", "Population": 68, "Color": "#4ECDC4"}
-    ],
-    "comparison": {
-        "Country": ["India", "China", "USA", "Indonesia", "Pakistan", "Brazil", "Nigeria"],
-        "Pop2025": [1450, 1410, 340, 280, 240, 215, 230],
-        "Pop2050": [1670, 1310, 375, 315, 370, 230, 400]
-    }
-}
+# Ground truth historical data
+HISTORICAL_YEARS = np.array([
+    1950, 1955, 1960, 1965, 1970, 1975, 1980, 1985, 1990, 
+    1995, 2000, 2005, 2010, 2015, 2020, 2025
+]).reshape(-1, 1)
 
-def interpolate_population(year):
-    all_years = DATA["historical"]["years"] + DATA["projected"]["years"][1:]
-    all_pops = DATA["historical"]["pop"] + DATA["projected"]["pop"][1:]
-    
-    if year <= all_years[0]: return all_pops[0]
-    if year >= all_years[-1]: return all_pops[-1]
-    
-    for i in range(len(all_years) - 1):
-        if all_years[i] <= year <= all_years[i+1]:
-            t = (year - all_years[i]) / (all_years[i+1] - all_years[i])
-            return all_pops[i] + t * (all_pops[i+1] - all_pops[i])
-    return 0
+HISTORICAL_POP = np.array([
+    376, 409, 450, 499, 555, 623, 698, 784, 873, 
+    964, 1057, 1148, 1234, 1310, 1380, 1450
+])
+
+# UN Projected data for benchmarking
+UN_PROJECTED_YEARS = [2025, 2030, 2035, 2040, 2045, 2050, 2060, 2070, 2080, 2090, 2100]
+UN_PROJECTED_POP = [1450, 1515, 1565, 1610, 1645, 1670, 1695, 1690, 1655, 1590, 1533]
+
+STATES_DATA = [
+    {"State": "Uttar Pradesh", "Population": 231, "Color": "#FF6B35"},
+    {"State": "Maharashtra", "Population": 126, "Color": "#F7C948"},
+    {"State": "Bihar", "Population": 124, "Color": "#1B9C85"},
+    {"State": "West Bengal", "Population": 100, "Color": "#E94560"},
+    {"State": "Madhya Pradesh", "Population": 85, "Color": "#7B68EE"}
+]
 
 # ==========================================
-# SIDEBAR
+# MACHINE LEARNING ENGINE
+# ==========================================
+@st.cache_resource
+def train_models():
+    """Trains regression models to forecast population."""
+    models = {}
+    
+    # 1. Linear Regression
+    lr = LinearRegression()
+    lr.fit(HISTORICAL_YEARS, HISTORICAL_POP)
+    models['Linear Regression'] = {'model': lr, 'degree': 1}
+    
+    # 2. Polynomial Regression (Degree 2)
+    poly2 = PolynomialFeatures(degree=2)
+    X_poly2 = poly2.fit_transform(HISTORICAL_YEARS)
+    lr2 = LinearRegression()
+    lr2.fit(X_poly2, HISTORICAL_POP)
+    models['Polynomial Regression (2nd Degree)'] = {'model': lr2, 'poly': poly2, 'degree': 2}
+    
+    # 3. Polynomial Regression (Degree 3)
+    poly3 = PolynomialFeatures(degree=3)
+    X_poly3 = poly3.fit_transform(HISTORICAL_YEARS)
+    lr3 = LinearRegression()
+    lr3.fit(X_poly3, HISTORICAL_POP)
+    models['Polynomial Regression (3rd Degree)'] = {'model': lr3, 'poly': poly3, 'degree': 3}
+    
+    return models
+
+def predict_population(models_dict, model_name, year):
+    X_pred = np.array([[year]])
+    model_obj = models_dict[model_name]
+    
+    if model_obj['degree'] == 1:
+        pred = model_obj['model'].predict(X_pred)
+    else:
+        poly = model_obj['poly']
+        X_poly_pred = poly.transform(X_pred)
+        pred = model_obj['model'].predict(X_poly_pred)
+        
+    return max(0, pred[0]) # Population can't be negative
+
+models = train_models()
+
+# ==========================================
+# SIDEBAR CONTROLS
 # ==========================================
 with st.sidebar:
-    st.markdown("## ⚙️ Settings & Predictor")
-    selected_year = st.slider("Select Year to Predict:", min_value=1950, max_value=2100, value=2025, step=1)
+    st.markdown("## ⚙️ AI Predictor Configuration")
     
-    pred_pop = interpolate_population(selected_year)
-    
-    st.markdown("### Estimated Population:")
-    st.markdown(f"<h1 style='color: #FF6B35; text-align: center;'>{int(pred_pop * 1000000):,}</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94a3b8;'>Individuals</p>", unsafe_allow_html=True)
+    selected_model = st.selectbox(
+        "🧠 Select Machine Learning Model:",
+        options=list(models.keys()),
+        index=1  # Default to Degree 2
+    )
     
     st.markdown("---")
-    st.markdown("### Navigaion")
-    st.markdown("- [Live Status](#india-s-population-past-present-future)")
-    st.markdown("- [Key Statistics](#key-demographics-2025)")
-    st.markdown("- [Population Growth Trend](#population-growth-trend)")
-    st.markdown("- [State Wise Breakdown](#top-states-by-population)")
+    st.markdown("### 🎯 Single Year Predictor")
+    selected_year = st.slider("Select Year:", min_value=1950, max_value=2100, value=2050, step=1)
+    
+    # ML Prediction
+    pred_val = predict_population(models, selected_model, selected_year)
+    
+    st.markdown("#### Model Estimation:")
+    st.markdown(f"<h1 style='color: #1B9C85; text-align: center; margin: 0;'>{int(pred_val * 1000000):,}</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8;'>Individuals</p>", unsafe_allow_html=True)
+    
+    # Calculate R2 Score for selected model
+    hist_preds = []
+    for y in HISTORICAL_YEARS.flatten():
+        hist_preds.append(predict_population(models, selected_model, y))
+    r2 = r2_score(HISTORICAL_POP, hist_preds)
+    
+    st.info(f"📈 Model R² Score: {r2:.4f}\n\n(Score near 1.0 indicates perfect fit to historical data)")
 
 # ==========================================
-# MAIN APP
+# MAIN APP UI
 # ==========================================
-st.markdown('<p class="main-header">India\'s Population: Past, Present & Future</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Explore India\'s demographic journey from 1950 to 2100 based on UN World Population Prospects.</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">India Population: ML Predictions</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">AI-driven analysis leveraging historical regression to forecast India\'s demographic future.</p>', unsafe_allow_html=True)
 
+# Generate predictions curve
+future_years = np.arange(1950, 2101, 1).reshape(-1, 1)
+future_preds = [predict_population(models, selected_model, y) for y in future_years.flatten()]
 
-# --- Live Counter ---
-# Calculate a rough real-time current estimate
-base_pop_2025 = 1450000000
-growth_per_second = (0.9 / 100 / 365.25 / 24 / 3600) * base_pop_2025
-start_of_year = datetime(2025, 1, 1).timestamp()
-now = time.time()
-current_est = int(base_pop_2025 + growth_per_second * (now - start_of_year))
-
-st.info(f"**Live Estimated Current Population:** {current_est:,} 🟢")
-
-st.markdown("---")
-st.markdown("### 📊 Key Demographics (2025)")
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric(label="Total Population", value="1.45 Billion", delta="0.9% / yr")
-with col2:
-    st.metric(label="Urban Population", value="36%", delta="Rising")
-with col3:
-    st.metric(label="Fertility Rate", value="2.0", delta="-0.1", delta_color="inverse")
-with col4:
-    st.metric(label="Median Age", value="28.4 yrs", delta="+0.3", delta_color="normal")
-
-st.markdown("---")
-
-# --- Tabs for Charts ---
-tab1, tab2, tab3 = st.tabs(["📉 Population Growth Trend", "📊 Growth Rate %", "🌍 World Comparison"])
+tab1, tab2, tab3 = st.tabs(["🤖 ML Forecasting Curve", "📊 Model Evaluation vs UN", "🗺️ State Distribution"])
 
 with tab1:
-    fig_pop = go.Figure()
-    # Historical
-    fig_pop.add_trace(go.Scatter(
-        x=DATA["historical"]["years"], y=DATA["historical"]["pop"],
-        mode='lines', name='Historical', line=dict(color='#FF6B35', width=3),
-        fill='tozeroy', fillcolor='rgba(255, 107, 53, 0.2)'
-    ))
-    # Projected
-    fig_pop.add_trace(go.Scatter(
-        x=DATA["projected"]["years"], y=DATA["projected"]["pop"],
-        mode='lines', name='Projected', line=dict(color='#1B9C85', width=3, dash='dash'),
-        fill='tozeroy', fillcolor='rgba(27, 156, 133, 0.2)'
+    st.markdown(f"#### Analyzing population growth using: **{selected_model}**")
+    
+    fig = go.Figure()
+
+    # Model Prediction Line
+    fig.add_trace(go.Scatter(
+        x=future_years.flatten(), y=future_preds,
+        mode='lines', name=f'{selected_model} Prediction',
+        line=dict(color='#1B9C85', width=3),
+        hovertemplate='Year: %{x}<br>Predicted Pop: %{y:.0f}M<extra></extra>'
     ))
     
-    # Peak marker
-    fig_pop.add_annotation(x=2065, y=1697, text="Peak: 1.697 Billion (2065)", showarrow=True, arrowhead=1)
+    # Historical Data Points
+    fig.add_trace(go.Scatter(
+        x=HISTORICAL_YEARS.flatten(), y=HISTORICAL_POP,
+        mode='markers', name='Actual Historical Data',
+        marker=dict(color='#FF6B35', size=8, line=dict(color='white', width=1)),
+        hovertemplate='Year: %{x}<br>Actual Pop: %{y}M<extra></extra>'
+    ))
     
-    fig_pop.update_layout(
-        title="Historical & Projected Population (in Millions)",
+    # UN Projections Data Points
+    fig.add_trace(go.Scatter(
+        x=UN_PROJECTED_YEARS, y=UN_PROJECTED_POP,
+        mode='lines+markers', name='UN Medium Variant (Baseline)',
+        line=dict(color='#F7C948', width=2, dash='dot'),
+        marker=dict(size=6),
+        hovertemplate='Year: %{x}<br>UN Projected: %{y}M<extra></extra>'
+    ))
+    
+    # Point showing User's Selected Year
+    fig.add_trace(go.Scatter(
+        x=[selected_year], y=[pred_val],
+        mode='markers+text', name='Your Selection',
+        marker=dict(color='red', size=12, symbol='star'),
+        text=[f"{selected_year}: {int(pred_val)}M"],
+        textposition="top center",
+        showlegend=False
+    ))
+
+    fig.update_layout(
         xaxis_title="Year",
         yaxis_title="Population (Millions)",
         template="plotly_dark",
         hovermode="x unified",
-        margin=dict(l=0, r=0, t=40, b=0)
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        height=550
     )
-    st.plotly_chart(fig_pop, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
-    colors = ['#22c55e' if r >= 0 else '#ef4444' for r in DATA["growth_rate"]["rate"]]
-    fig_growth = go.Figure(data=[go.Bar(
-        x=DATA["growth_rate"]["years"],
-        y=DATA["growth_rate"]["rate"],
-        marker_color=colors,
-        text=[f"{r}%" for r in DATA["growth_rate"]["rate"]],
-        textposition='auto'
-    )])
-    fig_growth.update_layout(
-        title="Annual Population Growth Rate (%)",
-        xaxis_title="Year",
-        yaxis_title="Growth Rate (%)",
-        template="plotly_dark",
-        margin=dict(l=0, r=0, t=40, b=0)
+    st.markdown("#### Error Analysis: How does the ML Model compare?")
+    
+    # Calculate RMSE against historical
+    rmse_hist = root_mean_squared_error(HISTORICAL_POP, hist_preds)
+    
+    # Calculate RMSE of Model vs UN Projections (for future years)
+    un_model_preds = [predict_population(models, selected_model, y) for y in UN_PROJECTED_YEARS]
+    rmse_un = root_mean_squared_error(UN_PROJECTED_POP, un_model_preds)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Historical Model RMSE", f"{rmse_hist:.1f} Million", help="Lower is better. Error against known data.")
+    with col2:
+        st.metric("Deviation from UN Baseline (RMSE)", f"{rmse_un:.1f} Million", help="Difference between AI and UN estimates.")
+    
+    # Bar chart for residuals
+    residuals = HISTORICAL_POP - np.array(hist_preds)
+    fig_resid = px.bar(
+        x=HISTORICAL_YEARS.flatten(), y=residuals,
+        title="Model Residuals (Actual - Predicted) on Historical Data",
+        labels={'x': 'Year', 'y': "Residual Error (Millions)"},
+        color=residuals, color_continuous_scale="RdBu"
     )
-    st.plotly_chart(fig_growth, use_container_width=True)
+    fig_resid.update_layout(template="plotly_dark")
+    st.plotly_chart(fig_resid, use_container_width=True)
 
 with tab3:
-    df_comp = pd.DataFrame(DATA["comparison"])
-    fig_comp = go.Figure()
-    fig_comp.add_trace(go.Bar(
-        x=df_comp['Country'], y=df_comp['Pop2025'],
-        name='2025', marker_color='#FF6B35'
-    ))
-    fig_comp.add_trace(go.Bar(
-        x=df_comp['Country'], y=df_comp['Pop2050'],
-        name='2050 (Projected)', marker_color='#1B9C85'
-    ))
-    fig_comp.update_layout(
-        title="Population Comparison (in Millions)",
-        barmode='group',
-        template="plotly_dark",
-        margin=dict(l=0, r=0, t=40, b=0)
+    st.markdown("#### Top 5 Most Populous States (2025 Current)")
+    df_states = pd.DataFrame(STATES_DATA)
+    fig_states = px.pie(
+        df_states, values='Population', names='State',
+        title="Population Distribution among Top 5 States",
+        color='State', color_discrete_map={row['State']: row['Color'] for idx, row in df_states.iterrows()}
     )
-    st.plotly_chart(fig_comp, use_container_width=True)
+    fig_states.update_layout(template="plotly_dark")
+    st.plotly_chart(fig_states, use_container_width=True)
 
-st.markdown("---")
-
-# --- States Section ---
-st.markdown("### 🗺️ Top States by Population (2025 est.)")
-df_states = pd.DataFrame(DATA["states"])
-
-fig_states = px.bar(
-    df_states.sort_values("Population", ascending=True),
-    x="Population", y="State", orientation='h',
-    color="State", color_discrete_sequence=df_states["Color"].tolist()[::-1],
-    text="Population"
-)
-fig_states.update_traces(texttemplate='%{text} M', textposition='outside')
-fig_states.update_layout(
-    xaxis_title="Population in Millions",
-    yaxis_title="",
-    showlegend=False,
-    template="plotly_dark",
-    height=400,
-    margin=dict(l=0, r=0, t=0, b=0)
-)
-st.plotly_chart(fig_states, use_container_width=True)
-
-# --- Footer ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #94a3b8; font-size: 0.9rem;'>
-    <p>Data sources: <a href="https://population.un.org/wpp/" target="_blank">UN World Population Prospects</a> & <a href="https://censusindia.gov.in/" target="_blank">Census of India</a></p>
-    <p>Built with ❤️ using Python & Streamlit</p>
+    <p>Machine Learning Engine powered by Scikit-Learn. Datasets: <a href="https://population.un.org/wpp/" target="_blank">UN World Population Prospects</a>.</p>
 </div>
 """, unsafe_allow_html=True)
