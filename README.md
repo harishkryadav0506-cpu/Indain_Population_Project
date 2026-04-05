@@ -12,6 +12,11 @@
 
 ---
 
+🌐 **Live App URL:**
+
+> **[https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app](https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app)**
+
+
 ## 📸 Screenshots
 
 | Dashboard | Model Comparison |
@@ -107,22 +112,7 @@ Open your browser at **http://localhost:8501** 🎉
 
 ---
 
-## ☁️ Deploy on Streamlit Cloud (Free)
 
-> Streamlit Community Cloud is the easiest free way to deploy this app — no Docker, no servers.
-
-1. **Fork or push this repo** to your GitHub account
-2. Go to **[share.streamlit.io](https://share.streamlit.io)** and sign in with GitHub
-3. Click **"Deploy an app"**
-4. Fill in the details:
-   - **Repository:** `harishkryadav0506-cpu/Indain_Population_Project`
-   - **Branch:** `main`
-   - **Main file path:** `app.py`
-5. Click **Deploy!**
-
-🌐 **Live App URL:**
-
-> **[https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app](https://indainpopulationproject-dykvkdfumgoe9wjkkztvgz.streamlit.app)**
 
 ---
 
