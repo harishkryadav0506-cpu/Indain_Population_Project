@@ -16,6 +16,31 @@ A stunning, interactive web application for visualizing India's population trend
 - **REST API** — JSON endpoints for population data
 - **Responsive Design** — Works on desktop, tablet & mobile
 
+## 📁 Project Structure
+
+```
+india-population-prediction/
+├── app.py                     # Entry point (run this)
+├── requirements.txt           # Python dependencies
+├── Procfile                   # Deployment config (Gunicorn)
+├── render.yaml                # Render.com auto-deploy config
+├── .gitignore
+├── README.md
+│
+└── src/                       # Source code package
+    ├── __init__.py            # Flask app factory
+    ├── config.py              # App configuration
+    ├── data.py                # Population data & interpolation
+    ├── routes.py              # Page & API route blueprints
+    ├── templates/
+    │   └── index.html         # Jinja2 HTML template
+    └── static/
+        ├── css/
+        │   └── style.css      # Styles & animations
+        └── js/
+            └── app.js         # Charts, counter, interactivity
+```
+
 ## 🚀 Quick Start
 
 ### Local Development
@@ -74,25 +99,6 @@ GET /api/predict/2050
 4. Select your repo — it auto-detects Flask
 5. Done! 🚀
 
-## 📁 Project Structure
-
-```
-anti-proj/
-├── app.py                 # Flask application (main)
-├── requirements.txt       # Python dependencies
-├── Procfile              # Deployment config
-├── render.yaml           # Render deployment config
-├── .gitignore            # Git ignore rules
-├── README.md             # This file
-├── templates/
-│   └── index.html        # Jinja2 HTML template
-└── static/
-    ├── css/
-    │   └── style.css     # Styles & animations
-    └── js/
-        └── app.js        # Charts & interactivity
-```
-
 ## 📊 Data Sources
 
 - [UN World Population Prospects](https://population.un.org/wpp/)
@@ -101,7 +107,7 @@ anti-proj/
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python 3.9+, Flask
+- **Backend**: Python 3.9+, Flask, Blueprints
 - **Frontend**: HTML5, CSS3, JavaScript
 - **Charts**: Chart.js 4.x
 - **Fonts**: Google Fonts (Inter, Outfit)

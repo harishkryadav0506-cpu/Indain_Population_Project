@@ -17,8 +17,3 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-
-# Old static HTML files (now in templates/static)
-/index.html
-/style.css
-/app.js
